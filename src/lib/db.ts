@@ -4,7 +4,7 @@ import {
   Timestamp, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { Compromisso, Caderno, Pagina, Tarefa, Revisao } from '@/types'
+import type { Compromisso, Caderno, Pagina, Tarefa, Revisao, QualidadeRevisao } from '@/types'
 import { addDays, format } from 'date-fns'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -125,17 +125,45 @@ export async function addRevisao(data: Omit<Revisao, 'id'>) {
   return addDoc(collection(db, 'revisoes'), data)
 }
 
-export async function revisarConteudo(revisao: Revisao) {
-  // Spaced repetition: 1 → 3 → 7 → 14 → 30 → 60
-  const intervalos = [1, 3, 7, 14, 30, 60]
-  const proxIdx    = Math.min(revisao.repeticoes, intervalos.length - 1)
-  const novoIntervalo   = intervalos[proxIdx]
-  const proximaRevisao  = format(addDays(new Date(), novoIntervalo), 'yyyy-MM-dd')
+// Mapeia a nota do usuário (estilo Anki) para o "quality" 0-5 usado no SM-2 clássico
+const QUALIDADE_PARA_SM2: Record<QualidadeRevisao, number> = {
+  errei:   1,
+  dificil: 3,
+  bom:     4,
+  facil:   5,
+}
+
+export async function revisarConteudo(revisao: Revisao, qualidade: QualidadeRevisao = 'bom') {
+  // Algoritmo SM-2 (o mesmo princípio usado pelo Anki)
+  const q = QUALIDADE_PARA_SM2[qualidade]
+  let facilidade = revisao.facilidade ?? 2.5
+  let repeticoes = revisao.repeticoes ?? 0
+  let intervalo  = revisao.intervalo ?? 1
+
+  if (q < 3) {
+    // Errou ou achou muito difícil: reinicia o ciclo, mas mantém a facilidade
+    // (levemente reduzida) para o cartão voltar a aparecer em breve
+    repeticoes = 0
+    intervalo  = 1
+  } else {
+    if (repeticoes === 0) intervalo = 1
+    else if (repeticoes === 1) intervalo = 3
+    else intervalo = Math.round(intervalo * facilidade)
+    repeticoes += 1
+  }
+
+  // Atualiza o fator de facilidade (nunca abaixo de 1.3)
+  facilidade = facilidade + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+  facilidade = Math.max(1.3, Math.round(facilidade * 100) / 100)
+
+  const proximaRevisao = format(addDays(new Date(), intervalo), 'yyyy-MM-dd')
+
   return updateDoc(doc(db, 'revisoes', revisao.id), {
-    repeticoes:    revisao.repeticoes + 1,
-    intervalo:     novoIntervalo,
+    repeticoes,
+    intervalo,
+    facilidade,
     proximaRevisao,
-    atualizadoEm:  now(),
+    atualizadoEm: now(),
   })
 }
 

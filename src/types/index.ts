@@ -56,11 +56,16 @@ export interface Revisao {
   id: string
   userId: string
   titulo: string
-  conteudo?: string
+  conteudo?: string       // frente do cartão (pergunta)
+  verso?: string          // verso do cartão (resposta) — estilo Anki
   tags: string[]
   proximaRevisao: string  // ISO date
   intervalo: number       // days
   repeticoes: number
+  facilidade: number      // ease factor (SM-2), começa em 2.5
   criadoEm: number
   atualizadoEm: number
 }
+
+// Notas de qualidade da revisão, no estilo Anki
+export type QualidadeRevisao = 'errei' | 'dificil' | 'bom' | 'facil'

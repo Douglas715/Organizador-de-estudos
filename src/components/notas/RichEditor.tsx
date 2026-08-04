@@ -8,14 +8,28 @@ import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import { useEffect, useCallback } from 'react'
+import Image from '@tiptap/extension-image'
+import { useEffect, useCallback, useRef } from 'react'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
   List, ListOrdered, ListChecks, Heading1, Heading2, Heading3,
   AlignLeft, AlignCenter, AlignRight,
-  Quote, Code, Highlighter, Minus,
+  Quote, Code, Highlighter, Minus, ImageIcon,
 } from 'lucide-react'
 import { clsx } from 'clsx'
+import toast from 'react-hot-toast'
+
+// Converte um arquivo de imagem em base64 (data URL) para salvar direto no conteúdo da página
+function fileParaDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024 // 5MB
 
 interface EditorProps {
   content: string
@@ -52,6 +66,8 @@ function Divider() {
 }
 
 export default function RichEditor({ content, onChange, placeholder }: EditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -60,6 +76,7 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'rounded-xl max-w-full' } }),
       Placeholder.configure({ placeholder: placeholder ?? 'Comece a escrever...' }),
     ],
     content: content ? JSON.parse(content) : '',
@@ -68,8 +85,63 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
     },
     editorProps: {
       attributes: { class: 'ProseMirror' },
+      // Cola imagens da área de transferência (Ctrl+V / Cmd+V)
+      handlePaste: (view, event) => {
+        const items = Array.from(event.clipboardData?.items ?? [])
+        const imagem = items.find(item => item.type.startsWith('image/'))
+        if (!imagem) return false
+
+        const file = imagem.getAsFile()
+        if (!file) return false
+
+        if (file.size > TAMANHO_MAXIMO_IMAGEM) {
+          toast.error('Imagem muito grande (máx. 5MB)')
+          return true
+        }
+
+        event.preventDefault()
+        fileParaDataUrl(file).then(url => {
+          view.dispatch(view.state.tr.replaceSelectionWith(
+            view.state.schema.nodes.image.create({ src: url })
+          ))
+        })
+        return true
+      },
+      // Suporte a arrastar-e-soltar imagens
+      handleDrop: (view, event) => {
+        const file = Array.from(event.dataTransfer?.files ?? []).find(f => f.type.startsWith('image/'))
+        if (!file) return false
+
+        if (file.size > TAMANHO_MAXIMO_IMAGEM) {
+          toast.error('Imagem muito grande (máx. 5MB)')
+          return true
+        }
+
+        event.preventDefault()
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY })
+        fileParaDataUrl(file).then(url => {
+          const node = view.state.schema.nodes.image.create({ src: url })
+          const tr = view.state.tr.insert(coords?.pos ?? view.state.doc.content.size, node)
+          view.dispatch(tr)
+        })
+        return true
+      },
     },
   })
+
+  const inserirImagemPorArquivo = useCallback(async (file: File | undefined) => {
+    if (!file || !editor) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione um arquivo de imagem')
+      return
+    }
+    if (file.size > TAMANHO_MAXIMO_IMAGEM) {
+      toast.error('Imagem muito grande (máx. 5MB)')
+      return
+    }
+    const url = await fileParaDataUrl(file)
+    editor.chain().focus().setImage({ src: url }).run()
+  }, [editor])
 
   // sync when content prop changes externally (page switch)
   useEffect(() => {
@@ -152,9 +224,25 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
         <ToolbarBtn onClick={() => e.chain().focus().setHorizontalRule().run()} active={false} title="Divisor">
           <Minus className="w-3.5 h-3.5" />
         </ToolbarBtn>
+
+        <Divider />
+
+        <ToolbarBtn onClick={() => fileInputRef.current?.click()} active={false} title="Inserir imagem">
+          <ImageIcon className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={ev => {
+            inserirImagemPorArquivo(ev.target.files?.[0])
+            ev.target.value = ''
+          }}
+        />
       </div>
 
-      {/* Editor area */}
+      {/* Editor area — também aceita colar (Ctrl+V) ou arrastar imagens direto */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
         <EditorContent editor={editor} className="h-full" />
       </div>
