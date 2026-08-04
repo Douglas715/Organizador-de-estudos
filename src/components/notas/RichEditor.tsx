@@ -1,0 +1,163 @@
+'use client'
+
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import Underline from '@tiptap/extension-underline'
+import TextAlign from '@tiptap/extension-text-align'
+import Highlight from '@tiptap/extension-highlight'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import { useEffect, useCallback } from 'react'
+import {
+  Bold, Italic, Underline as UnderlineIcon, Strikethrough,
+  List, ListOrdered, ListChecks, Heading1, Heading2, Heading3,
+  AlignLeft, AlignCenter, AlignRight,
+  Quote, Code, Highlighter, Minus,
+} from 'lucide-react'
+import { clsx } from 'clsx'
+
+interface EditorProps {
+  content: string
+  onChange: (json: string) => void
+  placeholder?: string
+}
+
+function ToolbarBtn({
+  onClick, active, title, children,
+}: {
+  onClick: () => void
+  active?: boolean
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onMouseDown={e => { e.preventDefault(); onClick() }}
+      title={title}
+      className={clsx(
+        'w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-colors',
+        active
+          ? 'bg-brand-100 text-brand-700'
+          : 'text-surface-500 hover:bg-surface-100 hover:text-surface-800'
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+function Divider() {
+  return <div className="w-px h-5 bg-surface-200 mx-0.5" />
+}
+
+export default function RichEditor({ content, onChange, placeholder }: EditorProps) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Highlight.configure({ multicolor: false }),
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Placeholder.configure({ placeholder: placeholder ?? 'Comece a escrever...' }),
+    ],
+    content: content ? JSON.parse(content) : '',
+    onUpdate: ({ editor }) => {
+      onChange(JSON.stringify(editor.getJSON()))
+    },
+    editorProps: {
+      attributes: { class: 'ProseMirror' },
+    },
+  })
+
+  // sync when content prop changes externally (page switch)
+  useEffect(() => {
+    if (!editor) return
+    const current = JSON.stringify(editor.getJSON())
+    if (content && current !== content) {
+      editor.commands.setContent(JSON.parse(content), false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content])
+
+  if (!editor) return null
+
+  const e = editor
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-surface-100 bg-surface-50/80">
+        <ToolbarBtn onClick={() => e.chain().focus().toggleBold().run()} active={e.isActive('bold')} title="Negrito">
+          <Bold className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleItalic().run()} active={e.isActive('italic')} title="Itálico">
+          <Italic className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleUnderline().run()} active={e.isActive('underline')} title="Sublinhado">
+          <UnderlineIcon className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleStrike().run()} active={e.isActive('strike')} title="Tachado">
+          <Strikethrough className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleHighlight().run()} active={e.isActive('highlight')} title="Destaque">
+          <Highlighter className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+
+        <Divider />
+
+        <ToolbarBtn onClick={() => e.chain().focus().toggleHeading({ level: 1 }).run()} active={e.isActive('heading', { level: 1 })} title="Título 1">
+          <Heading1 className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleHeading({ level: 2 }).run()} active={e.isActive('heading', { level: 2 })} title="Título 2">
+          <Heading2 className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleHeading({ level: 3 }).run()} active={e.isActive('heading', { level: 3 })} title="Título 3">
+          <Heading3 className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+
+        <Divider />
+
+        <ToolbarBtn onClick={() => e.chain().focus().toggleBulletList().run()} active={e.isActive('bulletList')} title="Lista">
+          <List className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleOrderedList().run()} active={e.isActive('orderedList')} title="Lista numerada">
+          <ListOrdered className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleTaskList().run()} active={e.isActive('taskList')} title="Lista de tarefas">
+          <ListChecks className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+
+        <Divider />
+
+        <ToolbarBtn onClick={() => e.chain().focus().setTextAlign('left').run()} active={e.isActive({ textAlign: 'left' })} title="Esquerda">
+          <AlignLeft className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().setTextAlign('center').run()} active={e.isActive({ textAlign: 'center' })} title="Centro">
+          <AlignCenter className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().setTextAlign('right').run()} active={e.isActive({ textAlign: 'right' })} title="Direita">
+          <AlignRight className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+
+        <Divider />
+
+        <ToolbarBtn onClick={() => e.chain().focus().toggleBlockquote().run()} active={e.isActive('blockquote')} title="Citação">
+          <Quote className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().toggleCode().run()} active={e.isActive('code')} title="Código">
+          <Code className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+        <ToolbarBtn onClick={() => e.chain().focus().setHorizontalRule().run()} active={false} title="Divisor">
+          <Minus className="w-3.5 h-3.5" />
+        </ToolbarBtn>
+      </div>
+
+      {/* Editor area */}
+      <div className="flex-1 overflow-y-auto px-8 py-6">
+        <EditorContent editor={editor} className="h-full" />
+      </div>
+    </div>
+  )
+}
