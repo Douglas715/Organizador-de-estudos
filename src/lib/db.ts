@@ -1,10 +1,10 @@
 import {
   collection, addDoc, updateDoc, deleteDoc,
   doc, query, where, orderBy, onSnapshot,
-  Timestamp, serverTimestamp,
+  Timestamp, serverTimestamp, deleteField,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { Compromisso, Caderno, Pagina, Tarefa, Revisao, QualidadeRevisao } from '@/types'
+import type { Compromisso, Caderno, Pagina, Tarefa, Revisao, QualidadeRevisao, Baralho, Pasta } from '@/types'
 import { addDays, format } from 'date-fns'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -35,6 +35,35 @@ export async function deleteCompromisso(id: string) {
   return deleteDoc(doc(db, 'compromissos', id))
 }
 
+// ── PASTAS (agrupam cadernos) ────────────────────────────────────────────────
+export function subscribePastas(userId: string, cb: (p: Pasta[]) => void) {
+  const q = query(
+    collection(db, 'pastas'),
+    where('userId', '==', userId),
+    orderBy('criadoEm')
+  )
+  return onSnapshot(q, snap =>
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pasta)))
+  )
+}
+
+export async function addPasta(data: Omit<Pasta, 'id'>) {
+  return addDoc(collection(db, 'pastas'), data)
+}
+
+export async function updatePasta(id: string, data: Partial<Pasta>) {
+  return updateDoc(doc(db, 'pastas', id), data)
+}
+
+export async function deletePasta(id: string) {
+  return deleteDoc(doc(db, 'pastas', id))
+}
+
+// Remove a referência à pasta de um caderno (usa deleteField pois o Firestore não aceita "undefined")
+export async function removerPastaDoCaderno(id: string) {
+  return updateDoc(doc(db, 'cadernos', id), { pastaId: deleteField() })
+}
+
 // ── CADERNOS ─────────────────────────────────────────────────────────────────
 export function subscribeCadernos(userId: string, cb: (c: Caderno[]) => void) {
   const q = query(
@@ -57,6 +86,11 @@ export async function updateCaderno(id: string, data: Partial<Caderno>) {
 
 export async function deleteCaderno(id: string) {
   return deleteDoc(doc(db, 'cadernos', id))
+}
+
+// Move um caderno para dentro de uma pasta (ou tira dele, se pastaId for null)
+export async function moverCadernoParaPasta(id: string, pastaId: string | null) {
+  return updateDoc(doc(db, 'cadernos', id), pastaId ? { pastaId } : { pastaId: deleteField() })
 }
 
 // ── PÁGINAS ──────────────────────────────────────────────────────────────────
@@ -109,6 +143,30 @@ export async function deleteTarefa(id: string) {
   return deleteDoc(doc(db, 'tarefas', id))
 }
 
+// ── BARALHOS (revisões) ─────────────────────────────────────────────────────
+export function subscribeBaralhos(userId: string, cb: (b: Baralho[]) => void) {
+  const q = query(
+    collection(db, 'baralhos'),
+    where('userId', '==', userId),
+    orderBy('criadoEm')
+  )
+  return onSnapshot(q, snap =>
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Baralho)))
+  )
+}
+
+export async function addBaralho(data: Omit<Baralho, 'id'>) {
+  return addDoc(collection(db, 'baralhos'), data)
+}
+
+export async function updateBaralho(id: string, data: Partial<Baralho>) {
+  return updateDoc(doc(db, 'baralhos', id), data)
+}
+
+export async function deleteBaralho(id: string) {
+  return deleteDoc(doc(db, 'baralhos', id))
+}
+
 // ── REVISÕES ──────────────────────────────────────────────────────────────────
 export function subscribeRevisoes(userId: string, cb: (r: Revisao[]) => void) {
   const q = query(
@@ -123,6 +181,15 @@ export function subscribeRevisoes(userId: string, cb: (r: Revisao[]) => void) {
 
 export async function addRevisao(data: Omit<Revisao, 'id'>) {
   return addDoc(collection(db, 'revisoes'), data)
+}
+
+export async function updateRevisao(id: string, data: Partial<Revisao>) {
+  return updateDoc(doc(db, 'revisoes', id), data)
+}
+
+// Remove a referência ao baralho (usa deleteField pois o Firestore não aceita "undefined")
+export async function removerBaralhoDaRevisao(id: string) {
+  return updateDoc(doc(db, 'revisoes', id), { baralhoId: deleteField() })
 }
 
 // Mapeia a nota do usuário (estilo Anki) para o "quality" 0-5 usado no SM-2 clássico

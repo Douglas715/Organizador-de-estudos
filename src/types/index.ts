@@ -19,9 +19,18 @@ export interface Compromisso {
 }
 
 // ── Notas ───────────────────────────────────────────────────────────────────
+export interface Pasta {
+  id: string
+  userId: string
+  nome: string
+  emoji: string
+  criadoEm: number
+}
+
 export interface Caderno {
   id: string
   userId: string
+  pastaId?: string    // referência à Pasta — cadernos sem pasta ficam soltos
   titulo: string
   emoji: string
   cor: string
@@ -52,9 +61,19 @@ export interface Tarefa {
 }
 
 // ── Revisões ─────────────────────────────────────────────────────────────────
+export interface Baralho {
+  id: string
+  userId: string
+  nome: string
+  emoji: string
+  cor: string
+  criadoEm: number
+}
+
 export interface Revisao {
   id: string
   userId: string
+  baralhoId?: string      // referência ao Baralho — cartões "avulsos" não têm baralho
   titulo: string
   conteudo?: string       // frente do cartão (pergunta)
   verso?: string          // verso do cartão (resposta) — estilo Anki

@@ -27,6 +27,14 @@
       ]
     },
     {
+      "collectionGroup": "pastas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",   "order": "ASCENDING" },
+        { "fieldPath": "criadoEm", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "paginas",
       "queryScope": "COLLECTION",
       "fields": [
@@ -41,6 +49,14 @@
       "fields": [
         { "fieldPath": "userId",         "order": "ASCENDING" },
         { "fieldPath": "proximaRevisao", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "baralhos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",   "order": "ASCENDING" },
+        { "fieldPath": "criadoEm", "order": "ASCENDING" }
       ]
     }
   ],

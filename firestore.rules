@@ -17,6 +17,11 @@ service cloud.firestore {
       allow create: if isOwner(request.resource.data.userId);
     }
 
+    match /pastas/{id} {
+      allow read, write: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+
     match /paginas/{id} {
       allow read, write: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId);
@@ -28,6 +33,11 @@ service cloud.firestore {
     }
 
     match /revisoes/{id} {
+      allow read, write: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId);
+    }
+
+    match /baralhos/{id} {
       allow read, write: if isOwner(resource.data.userId);
       allow create: if isOwner(request.resource.data.userId);
     }

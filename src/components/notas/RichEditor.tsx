@@ -8,7 +8,9 @@ import TextAlign from '@tiptap/extension-text-align'
 import Highlight from '@tiptap/extension-highlight'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
-import Image from '@tiptap/extension-image'
+import TextStyle from '@tiptap/extension-text-style'
+import ResizableImage from './ResizableImage'
+import FontSize from './FontSize'
 import { useEffect, useCallback, useRef } from 'react'
 import {
   Bold, Italic, Underline as UnderlineIcon, Strikethrough,
@@ -30,6 +32,7 @@ function fileParaDataUrl(file: File): Promise<string> {
 }
 
 const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024 // 5MB
+const TAMANHOS_FONTE = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48]
 
 interface EditorProps {
   content: string
@@ -76,7 +79,9 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Image.configure({ inline: false, allowBase64: true, HTMLAttributes: { class: 'rounded-xl max-w-full' } }),
+      TextStyle,
+      FontSize,
+      ResizableImage.configure({ inline: false, allowBase64: true }),
       Placeholder.configure({ placeholder: placeholder ?? 'Comece a escrever...' }),
     ],
     content: content ? JSON.parse(content) : '',
@@ -161,6 +166,24 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-0.5 px-4 py-2 border-b border-surface-100 bg-surface-50/80">
+        <select
+          value={e.getAttributes('textStyle').fontSize || ''}
+          onChange={ev => {
+            const val = ev.target.value
+            if (!val) e.chain().focus().unsetFontSize().run()
+            else e.chain().focus().setFontSize(val).run()
+          }}
+          title="Tamanho da fonte"
+          className="text-xs border border-surface-200 rounded-lg px-1.5 py-1 bg-white text-surface-600 outline-none hover:border-surface-300 cursor-pointer"
+        >
+          <option value="">Padrão</option>
+          {TAMANHOS_FONTE.map(t => (
+            <option key={t} value={`${t}px`}>{t}px</option>
+          ))}
+        </select>
+
+        <Divider />
+
         <ToolbarBtn onClick={() => e.chain().focus().toggleBold().run()} active={e.isActive('bold')} title="Negrito">
           <Bold className="w-3.5 h-3.5" />
         </ToolbarBtn>
