@@ -96,6 +96,9 @@ export default function RevisoesPage() {
         toast.success('Baralho criado!')
       }
       setModalBaralho(false)
+    } catch (err) {
+      console.error('Erro ao salvar baralho:', err)
+      toast.error('Não foi possível salvar o baralho. Verifique as regras do Firestore (coleção "baralhos").')
     } finally {
       setSalvando(false)
     }
@@ -133,6 +136,9 @@ export default function RevisoesPage() {
       toast.success('Cartão adicionado!')
       setModalCartao(false)
       setForm(FORM_VAZIO)
+    } catch (err) {
+      console.error('Erro ao criar cartão:', err)
+      toast.error('Não foi possível criar o cartão. Tente novamente.')
     } finally {
       setSalvando(false)
     }

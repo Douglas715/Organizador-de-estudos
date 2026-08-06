@@ -127,6 +127,9 @@ export default function NotasPage() {
       })
       toast.success('Caderno criado!')
       setModalCaderno(false)
+    } catch (err) {
+      console.error('Erro ao criar caderno:', err)
+      toast.error('Não foi possível criar o caderno. Tente novamente.')
     } finally {
       setSalvando(false)
     }
@@ -174,6 +177,9 @@ export default function NotasPage() {
         toast.success('Pasta criada!')
       }
       setModalPasta(false)
+    } catch (err) {
+      console.error('Erro ao salvar pasta:', err)
+      toast.error('Não foi possível salvar a pasta. Verifique as regras do Firestore (coleção "pastas").')
     } finally {
       setSalvando(false)
     }
