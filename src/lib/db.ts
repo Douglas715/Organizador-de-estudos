@@ -6,6 +6,11 @@ import {
 import { db } from './firebase'
 import type { Compromisso, Caderno, Pagina, Tarefa, Revisao, QualidadeRevisao, Baralho, Pasta } from '@/types'
 import { addDays, format } from 'date-fns'
+import toast from 'react-hot-toast'
+
+const onSubscriptionError = () => {
+  toast.error('Não foi possível carregar os dados. Verifique a conexão e tente novamente.')
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const now = () => Date.now()
@@ -19,7 +24,7 @@ export function subscribeCompromissos(userId: string, data: string, cb: (c: Comp
     orderBy('hora')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Compromisso)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Compromisso))), onSubscriptionError
   )
 }
 
@@ -43,7 +48,7 @@ export function subscribePastas(userId: string, cb: (p: Pasta[]) => void) {
     orderBy('criadoEm')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pasta)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pasta))), onSubscriptionError
   )
 }
 
@@ -72,7 +77,7 @@ export function subscribeCadernos(userId: string, cb: (c: Caderno[]) => void) {
     orderBy('criadoEm')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Caderno)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Caderno))), onSubscriptionError
   )
 }
 
@@ -102,7 +107,7 @@ export function subscribePaginas(userId: string, cadernoId: string, cb: (p: Pagi
     orderBy('criadoEm')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pagina)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Pagina))), onSubscriptionError
   )
 }
 
@@ -127,7 +132,7 @@ export function subscribeTarefas(userId: string, data: string, cb: (t: Tarefa[])
     orderBy('criadoEm')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Tarefa)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Tarefa))), onSubscriptionError
   )
 }
 
@@ -151,7 +156,7 @@ export function subscribeBaralhos(userId: string, cb: (b: Baralho[]) => void) {
     orderBy('criadoEm')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Baralho)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Baralho))), onSubscriptionError
   )
 }
 
@@ -175,7 +180,7 @@ export function subscribeRevisoes(userId: string, cb: (r: Revisao[]) => void) {
     orderBy('proximaRevisao')
   )
   return onSnapshot(q, snap =>
-    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Revisao)))
+    cb(snap.docs.map(d => ({ id: d.id, ...d.data() } as Revisao))), onSubscriptionError
   )
 }
 

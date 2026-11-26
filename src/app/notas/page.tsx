@@ -48,7 +48,49 @@ export default function NotasPage() {
   const [renomeandoValor, setRenomeandoValor] = useState('')
   const [pastasFechadas, setPastasFechadas] = useState<Set<string>>(new Set())
   const [movendoId, setMovendoId]           = useState<string | null>(null)
-  const saveTimer = useRef<NodeJS.Timeout | null>(null)
+  const pendingSaves = useRef(new Map<string, { content: string; version: number; timer: ReturnType<typeof setTimeout> | null }>())
+  const saveQueues = useRef(new Map<string, Promise<void>>())
+  const mounted = useRef(true)
+
+  const savePage = useCallback((id: string) => {
+    const pending = pendingSaves.current.get(id)
+    if (!pending) return
+    if (pending.timer) clearTimeout(pending.timer)
+    pending.timer = null
+    const previous = saveQueues.current.get(id) ?? Promise.resolve()
+    const next = previous.catch(() => {}).then(async () => {
+      const current = pendingSaves.current.get(id)
+      if (!current) return
+      const { content, version } = current
+      await updatePagina(id, { conteudo: content, atualizadoEm: Date.now() })
+      if (pendingSaves.current.get(id)?.version === version) {
+        pendingSaves.current.delete(id)
+      }
+      if (mounted.current && pendingSaves.current.size === 0) setAutoSaveLabel('Salvo automaticamente')
+    }).catch(() => {
+      if (mounted.current) {
+        setAutoSaveLabel('Não foi possível salvar')
+        toast.error('Não foi possível salvar a anotação. Verifique a conexão e tente editar novamente.')
+      }
+    })
+    saveQueues.current.set(id, next)
+  }, [])
+
+  useEffect(() => {
+    mounted.current = true
+    const warn = (event: BeforeUnloadEvent) => {
+      if (pendingSaves.current.size > 0) {
+        event.preventDefault()
+        event.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => {
+      mounted.current = false
+      window.removeEventListener('beforeunload', warn)
+      for (const id of pendingSaves.current.keys()) savePage(id)
+    }
+  }, [savePage])
 
   // Ao abrir uma página, fecha automaticamente os painéis de navegação
   useEffect(() => {
@@ -72,6 +114,10 @@ export default function NotasPage() {
   useEffect(() => {
     if (!user || !cadernoAtivo) return
     return subscribePaginas(user.uid, cadernoAtivo.id, paginas => {
+      paginas = paginas.map(p => {
+        const pending = pendingSaves.current.get(p.id)
+        return pending ? { ...p, conteudo: pending.content } : p
+      })
       setPaginas(paginas)
       if (paginas.length > 0) {
         setPaginaAtiva(prev =>
@@ -86,13 +132,14 @@ export default function NotasPage() {
   const handleEditorChange = useCallback((json: string) => {
     if (!paginaAtiva) return
     setPaginaAtiva(p => p ? { ...p, conteudo: json } : p)
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      await updatePagina(paginaAtiva.id, { conteudo: json, atualizadoEm: Date.now() })
-      setAutoSaveLabel('Salvo automaticamente')
-      setTimeout(() => setAutoSaveLabel(''), 2000)
-    }, 1200)
-  }, [paginaAtiva])
+    const id = paginaAtiva.id
+    const previous = pendingSaves.current.get(id)
+    if (previous?.timer) clearTimeout(previous.timer)
+    const version = (previous?.version ?? 0) + 1
+    const timer = setTimeout(() => savePage(id), 1200)
+    pendingSaves.current.set(id, { content: json, version, timer })
+    setAutoSaveLabel('Salvando...')
+  }, [paginaAtiva, savePage])
 
   // ── Cadernos ────────────────────────────────────────────────────────────────
   const iniciarRenomeacao = (c: Caderno) => {

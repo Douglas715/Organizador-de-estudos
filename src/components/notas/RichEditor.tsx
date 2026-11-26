@@ -31,7 +31,17 @@ function fileParaDataUrl(file: File): Promise<string> {
   })
 }
 
-const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024 // 5MB
+// O documento inteiro é salvo no Firestore, incluindo imagens em base64.
+const TAMANHO_MAXIMO_PAGINA = 900 * 1024
+function imagemCabeNaPagina(file: File, documento: unknown) {
+  const bytesAtuais = new TextEncoder().encode(JSON.stringify(documento)).length
+  const bytesDaImagem = Math.ceil(file.size / 3) * 4 + 1024
+  if (bytesAtuais + bytesDaImagem > TAMANHO_MAXIMO_PAGINA) {
+    toast.error('A página ficaria muito grande para salvar. Use uma imagem menor ou outra página.')
+    return false
+  }
+  return true
+}
 const TAMANHOS_FONTE = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48]
 
 interface EditorProps {
@@ -99,8 +109,7 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
         const file = imagem.getAsFile()
         if (!file) return false
 
-        if (file.size > TAMANHO_MAXIMO_IMAGEM) {
-          toast.error('Imagem muito grande (máx. 5MB)')
+        if (!imagemCabeNaPagina(file, view.state.doc.toJSON())) {
           return true
         }
 
@@ -117,8 +126,7 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
         const file = Array.from(event.dataTransfer?.files ?? []).find(f => f.type.startsWith('image/'))
         if (!file) return false
 
-        if (file.size > TAMANHO_MAXIMO_IMAGEM) {
-          toast.error('Imagem muito grande (máx. 5MB)')
+        if (!imagemCabeNaPagina(file, view.state.doc.toJSON())) {
           return true
         }
 
@@ -140,8 +148,7 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
       toast.error('Selecione um arquivo de imagem')
       return
     }
-    if (file.size > TAMANHO_MAXIMO_IMAGEM) {
-      toast.error('Imagem muito grande (máx. 5MB)')
+    if (!imagemCabeNaPagina(file, editor.getJSON())) {
       return
     }
     const url = await fileParaDataUrl(file)
@@ -152,8 +159,8 @@ export default function RichEditor({ content, onChange, placeholder }: EditorPro
   useEffect(() => {
     if (!editor) return
     const current = JSON.stringify(editor.getJSON())
-    if (content && current !== content) {
-      editor.commands.setContent(JSON.parse(content), false)
+    if (!content || current !== content) {
+      editor.commands.setContent(content ? JSON.parse(content) : '', false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content])
