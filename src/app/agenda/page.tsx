@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { subscribeCompromissos, addCompromisso, updateCompromisso, deleteCompromisso } from '@/lib/db'
 import type { Compromisso } from '@/types'
 import Modal from '@/components/ui/Modal'
-import { Plus, ChevronLeft, ChevronRight, Clock, Check, Trash2 } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Clock, Check, Trash2, Pencil } from 'lucide-react'
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -28,6 +28,7 @@ export default function AgendaPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm]           = useState<FormData>({ titulo: '', descricao: '', hora: '', cor: CORES[0] })
   const [salvando, setSalvando]   = useState(false)
+  const [editando, setEditando]   = useState<Compromisso | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -42,7 +43,14 @@ export default function AgendaPage() {
     if (!form.titulo.trim() || !user) return
     setSalvando(true)
     try {
-      await addCompromisso({
+      if (editando) {
+        await updateCompromisso(editando.id, {
+          titulo: form.titulo.trim(),
+          descricao: form.descricao.trim(),
+          hora: form.hora,
+          cor: form.cor,
+        })
+      } else await addCompromisso({
         userId:    user.uid,
         titulo:    form.titulo.trim(),
         descricao: form.descricao.trim(),
@@ -52,21 +60,28 @@ export default function AgendaPage() {
         concluido: false,
         criadoEm:  Date.now(),
       })
-      toast.success('Compromisso adicionado!')
+      toast.success(editando ? 'Compromisso atualizado!' : 'Compromisso adicionado!')
       setModalOpen(false)
+      setEditando(null)
       setForm({ titulo: '', descricao: '', hora: '', cor: CORES[0] })
+    } catch {
+      toast.error('Não foi possível salvar o compromisso. Tente novamente.')
     } finally {
       setSalvando(false)
     }
   }
 
   const toggleConcluido = async (c: Compromisso) => {
-    await updateCompromisso(c.id, { concluido: !c.concluido })
+    try { await updateCompromisso(c.id, { concluido: !c.concluido }) }
+    catch { toast.error('Não foi possível atualizar o compromisso.') }
   }
 
   const handleDelete = async (id: string) => {
-    await deleteCompromisso(id)
-    toast.success('Removido.')
+    if (!confirm('Excluir este compromisso?')) return
+    try {
+      await deleteCompromisso(id)
+      toast.success('Compromisso removido.')
+    } catch { toast.error('Não foi possível excluir o compromisso.') }
   }
 
   const dateLabel = isToday(parseISO(data))
@@ -75,9 +90,9 @@ export default function AgendaPage() {
 
   return (
     <AuthGuard>
-      <div className="p-8 max-w-3xl mx-auto">
+      <div className="p-4 md:p-8 max-w-3xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap gap-3 items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-surface-900 font-display capitalize">{dateLabel}</h1>
             <p className="text-surface-400 text-sm mt-0.5">{compromissos.length} compromisso{compromissos.length !== 1 ? 's' : ''}</p>
@@ -95,7 +110,7 @@ export default function AgendaPage() {
             <button onClick={() => navData(1)} className="btn-ghost p-2">
               <ChevronRight className="w-4 h-4" />
             </button>
-            <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2 ml-2">
+            <button onClick={() => { setEditando(null); setForm({ titulo: '', descricao: '', hora: '', cor: CORES[0] }); setModalOpen(true) }} className="btn-primary flex items-center gap-2 ml-2">
               <Plus className="w-4 h-4" />
               Novo
             </button>
@@ -106,7 +121,8 @@ export default function AgendaPage() {
         <input
           type="date"
           value={data}
-          onChange={e => setData(e.target.value)}
+          aria-label="Escolher data dos compromissos"
+          onChange={e => { if (e.target.value) setData(e.target.value) }}
           className="input mb-6 w-auto"
         />
 
@@ -132,6 +148,7 @@ export default function AgendaPage() {
 
                 {/* Check */}
                 <button
+                  aria-label={c.concluido ? 'Marcar como pendente' : 'Marcar como concluído'}
                   onClick={() => toggleConcluido(c)}
                   className={clsx(
                     'w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1 transition-colors',
@@ -161,8 +178,16 @@ export default function AgendaPage() {
 
                 {/* Delete */}
                 <button
+                  aria-label="Editar compromisso"
+                  onClick={() => { setEditando(c); setForm({ titulo: c.titulo, descricao: c.descricao || '', hora: c.hora || '', cor: c.cor }); setModalOpen(true) }}
+                  className="p-1.5 text-surface-400 hover:text-brand-600 rounded-lg"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button
+                  aria-label="Excluir compromisso"
                   onClick={() => handleDelete(c.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 text-surface-300 hover:text-red-400 rounded-lg hover:bg-red-50 transition-all"
+                  className="p-1.5 text-surface-400 hover:text-red-400 rounded-lg hover:bg-red-50 transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -173,7 +198,7 @@ export default function AgendaPage() {
       </div>
 
       {/* Modal */}
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Novo compromisso">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editando ? 'Editar compromisso' : 'Novo compromisso'}>
         <div className="space-y-4">
           <div>
             <label className="text-xs font-medium text-surface-600 mb-1 block">Título *</label>
@@ -222,7 +247,7 @@ export default function AgendaPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setModalOpen(false)} className="btn-ghost">Cancelar</button>
             <button onClick={handleSalvar} disabled={salvando || !form.titulo.trim()} className="btn-primary">
-              {salvando ? 'Salvando...' : 'Adicionar'}
+              {salvando ? 'Salvando...' : editando ? 'Salvar' : 'Adicionar'}
             </button>
           </div>
         </div>

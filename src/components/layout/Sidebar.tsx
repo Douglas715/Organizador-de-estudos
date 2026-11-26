@@ -19,7 +19,8 @@ export default function Sidebar() {
   const { user, signOut } = useAuth()
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[240px] bg-white border-r border-surface-200 flex flex-col z-40">
+    <>
+    <aside className="hidden md:flex fixed left-0 top-0 h-full w-[240px] bg-white border-r border-surface-200 flex-col z-40">
       {/* Logo */}
       <div className="flex items-center gap-3 px-5 h-16 border-b border-surface-100">
         <div className="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -78,5 +79,21 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+    <nav aria-label="Navegação principal" className="md:hidden fixed bottom-0 inset-x-0 z-40 flex justify-around bg-white border-t border-surface-200 pb-[env(safe-area-inset-bottom)]">
+      {links.map(({ href, label, icon: Icon }) => {
+        const active = pathname.startsWith(href)
+        return (
+          <Link key={href} href={href} aria-current={active ? 'page' : undefined}
+            className={clsx('flex flex-1 flex-col items-center gap-1 py-2 text-xs', active ? 'text-brand-700' : 'text-surface-500')}>
+            <Icon className="w-5 h-5" />
+            {label}
+          </Link>
+        )
+      })}
+      <button onClick={signOut} className="flex flex-1 flex-col items-center gap-1 py-2 text-xs text-surface-500">
+        <LogOut className="w-5 h-5" />Sair
+      </button>
+    </nav>
+    </>
   )
 }

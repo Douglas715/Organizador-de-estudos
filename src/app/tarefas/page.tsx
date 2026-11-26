@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { subscribeTarefas, addTarefa, updateTarefa, deleteTarefa } from '@/lib/db'
 import type { Tarefa } from '@/types'
 import Modal from '@/components/ui/Modal'
-import { Plus, ChevronLeft, ChevronRight, Check, Trash2, Flag } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Check, Trash2, Flag, Pencil } from 'lucide-react'
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -31,6 +31,7 @@ export default function TarefasPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm]           = useState<FormData>({ titulo: '', descricao: '', prioridade: 'media' })
   const [salvando, setSalvando]   = useState(false)
+  const [editando, setEditando]   = useState<Tarefa | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -49,7 +50,13 @@ export default function TarefasPage() {
     if (!form.titulo.trim() || !user) return
     setSalvando(true)
     try {
-      await addTarefa({
+      if (editando) {
+        await updateTarefa(editando.id, {
+          titulo: form.titulo.trim(),
+          descricao: form.descricao.trim(),
+          prioridade: form.prioridade,
+        })
+      } else await addTarefa({
         userId:    user.uid,
         titulo:    form.titulo.trim(),
         descricao: form.descricao.trim(),
@@ -58,9 +65,12 @@ export default function TarefasPage() {
         concluida: false,
         criadoEm:  Date.now(),
       })
-      toast.success('Tarefa adicionada!')
+      toast.success(editando ? 'Tarefa atualizada!' : 'Tarefa adicionada!')
       setModalOpen(false)
+      setEditando(null)
       setForm({ titulo: '', descricao: '', prioridade: 'media' })
+    } catch {
+      toast.error('Não foi possível salvar a tarefa. Tente novamente.')
     } finally {
       setSalvando(false)
     }
@@ -72,9 +82,9 @@ export default function TarefasPage() {
 
   return (
     <AuthGuard>
-      <div className="p-8 max-w-3xl mx-auto">
+      <div className="p-4 md:p-8 max-w-3xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap gap-3 items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-surface-900 font-display capitalize">{dateLabel}</h1>
             <p className="text-surface-400 text-sm mt-0.5">
@@ -85,11 +95,15 @@ export default function TarefasPage() {
             <button onClick={() => navData(-1)} className="btn-ghost p-2"><ChevronLeft className="w-4 h-4" /></button>
             <button onClick={() => setData(format(new Date(), 'yyyy-MM-dd'))} className="btn-ghost text-xs px-3">Hoje</button>
             <button onClick={() => navData(1)} className="btn-ghost p-2"><ChevronRight className="w-4 h-4" /></button>
-            <button onClick={() => setModalOpen(true)} className="btn-primary flex items-center gap-2 ml-2">
+            <button onClick={() => { setEditando(null); setForm({ titulo: '', descricao: '', prioridade: 'media' }); setModalOpen(true) }} className="btn-primary flex items-center gap-2 ml-2">
               <Plus className="w-4 h-4" />Nova
             </button>
           </div>
         </div>
+
+        <input type="date" aria-label="Escolher data das tarefas" value={data}
+          onChange={e => { if (e.target.value) setData(e.target.value) }}
+          className="input mb-6 w-auto" />
 
         {/* Progress bar */}
         {tarefas.length > 0 && (
@@ -120,7 +134,7 @@ export default function TarefasPage() {
               <section>
                 <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2 px-1">Pendentes</p>
                 <div className="space-y-2">
-                  {pendentes.map(t => <TarefaCard key={t.id} tarefa={t} />)}
+                  {pendentes.map(t => <TarefaCard key={t.id} tarefa={t} onEdit={() => { setEditando(t); setForm({ titulo: t.titulo, descricao: t.descricao || '', prioridade: t.prioridade }); setModalOpen(true) }} />)}
                 </div>
               </section>
             )}
@@ -129,7 +143,7 @@ export default function TarefasPage() {
               <section>
                 <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2 px-1">Concluídas</p>
                 <div className="space-y-2">
-                  {concluidas.map(t => <TarefaCard key={t.id} tarefa={t} />)}
+                  {concluidas.map(t => <TarefaCard key={t.id} tarefa={t} onEdit={() => { setEditando(t); setForm({ titulo: t.titulo, descricao: t.descricao || '', prioridade: t.prioridade }); setModalOpen(true) }} />)}
                 </div>
               </section>
             )}
@@ -137,7 +151,7 @@ export default function TarefasPage() {
         )}
       </div>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nova tarefa">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editando ? 'Editar tarefa' : 'Nova tarefa'}>
         <div className="space-y-4">
           <div>
             <label className="text-xs font-medium text-surface-600 mb-1 block">Título *</label>
@@ -181,7 +195,7 @@ export default function TarefasPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setModalOpen(false)} className="btn-ghost">Cancelar</button>
             <button onClick={handleSalvar} disabled={salvando || !form.titulo.trim()} className="btn-primary">
-              {salvando ? 'Salvando...' : 'Adicionar'}
+              {salvando ? 'Salvando...' : editando ? 'Salvar' : 'Adicionar'}
             </button>
           </div>
         </div>
@@ -190,8 +204,8 @@ export default function TarefasPage() {
   )
 }
 
-function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
-  const pConfig = PRIORIDADES.find(p => p.value === tarefa.prioridade)!
+function TarefaCard({ tarefa, onEdit }: { tarefa: Tarefa; onEdit: () => void }) {
+  const pConfig = PRIORIDADES.find(p => p.value === tarefa.prioridade) ?? PRIORIDADES[1]
 
   return (
     <div className={clsx(
@@ -199,7 +213,8 @@ function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
       tarefa.concluida && 'opacity-60'
     )}>
       <button
-        onClick={() => updateTarefa(tarefa.id, { concluida: !tarefa.concluida })}
+        aria-label={tarefa.concluida ? 'Marcar como pendente' : 'Marcar como concluída'}
+        onClick={async () => { try { await updateTarefa(tarefa.id, { concluida: !tarefa.concluida }) } catch { toast.error('Não foi possível atualizar a tarefa.') } }}
         className={clsx(
           'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors',
           tarefa.concluida
@@ -224,9 +239,13 @@ function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
           <Flag className="w-2.5 h-2.5 inline mr-0.5" />
           {pConfig.label}
         </span>
+        <button onClick={onEdit} aria-label="Editar tarefa" className="p-1 text-surface-400 hover:text-brand-600 rounded-lg">
+          <Pencil className="w-4 h-4" />
+        </button>
         <button
-          onClick={() => { deleteTarefa(tarefa.id); toast.success('Removida.') }}
-          className="opacity-0 group-hover:opacity-100 p-1 text-surface-300 hover:text-red-400 rounded-lg hover:bg-red-50 transition-all"
+          aria-label="Excluir tarefa"
+          onClick={async () => { if (!confirm('Excluir esta tarefa?')) return; try { await deleteTarefa(tarefa.id); toast.success('Tarefa removida.') } catch { toast.error('Não foi possível excluir a tarefa.') } }}
+          className="p-1 text-surface-400 hover:text-red-400 rounded-lg hover:bg-red-50 transition-all"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
