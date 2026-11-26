@@ -88,7 +88,7 @@ export default function NotasPage() {
     return () => {
       mounted.current = false
       window.removeEventListener('beforeunload', warn)
-      for (const id of pendingSaves.current.keys()) savePage(id)
+      pendingSaves.current.forEach((_, id) => savePage(id))
     }
   }, [savePage])
 
